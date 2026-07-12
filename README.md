@@ -1,32 +1,18 @@
-# React + TypeScript + Vite
+# Civ 6 District Discount Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A small tool for tracking district production discounts in Civilization VI. Unlock district
+types as you research/build them, drag districts through Available → Building → Finished, and
+the tracker tells you which district type is next in line for a discount.
 
-Currently, two official plugins are available:
+![Screenshot](public/screenshot.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Run standalone
 
-## React Compiler
+A prebuilt image is published on every release at `ghcr.io/waelmio/civ6-discount:latest`.
+Run it with:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```
+docker compose up
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Then open http://localhost:8080.
