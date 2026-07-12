@@ -145,7 +145,7 @@ h2 {
 
 .board {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   align-items: start;
 }
@@ -198,6 +198,11 @@ h2 {
   border-radius: 8px;
   padding: 6px 10px;
   background: var(--bg);
+  overflow: hidden;
+}
+
+.district-tile.available {
+  height: 64px;
 }
 
 .district-img {
@@ -220,6 +225,9 @@ h2 {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .need-hint {
@@ -243,11 +251,7 @@ h2 {
 }
 
 .district-tile.unlocked {
-  cursor: grab;
-}
-
-.district-tile.unlocked:active {
-  cursor: grabbing;
+  cursor: pointer;
 }
 
 .district-tile.discounted {
@@ -260,12 +264,33 @@ h2 {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+.district-tile.maxed {
+  cursor: pointer;
+  opacity: 0.55;
+  background: var(--border);
+}
+
+.district-tile.maxed .district-img {
+  filter: grayscale(1);
+}
+
+.hint-maxed {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.badge-maxed {
+  color: var(--text);
+  background: var(--border);
+  border-color: var(--text);
+}
+
 .district-tile.building {
-  cursor: grab;
+  cursor: pointer;
 }
 
 .district-tile.finished {
-  cursor: default;
+  cursor: pointer;
 }
 
 .lock-overlay {
@@ -275,25 +300,83 @@ h2 {
   flex-shrink: 0;
 }
 
-.move-to-building-btn {
+.build-zone {
   flex-shrink: 0;
+  align-self: stretch;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin: -6px -10px -6px 0;
+  padding: 0 22px;
   border: none;
-  background: none;
+  border-left: 1px solid var(--border);
+  border-radius: 0 7px 7px 0;
+  background: transparent;
   color: var(--text);
   cursor: pointer;
-  padding: 0 2px;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
-.move-to-building-btn svg {
-  width: 18px;
-  height: 18px;
+.build-zone svg {
+  width: 20px;
+  height: 20px;
 }
 
-.move-to-building-btn:hover {
-  color: var(--text-h);
+.build-zone:hover,
+.build-zone:focus-visible {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.side-zone {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.side-zone svg {
+  width: 15px;
+  height: 15px;
+}
+
+.side-zone-left {
+  margin: -6px 0 -6px -10px;
+  border-right: 1px solid var(--border);
+  border-radius: 7px 0 0 7px;
+}
+
+.side-zone-right {
+  margin: -6px -10px -6px 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0 7px 7px 0;
+}
+
+.side-zone-left:hover,
+.side-zone-left:focus-visible,
+.side-zone-right:hover,
+.side-zone-right:focus-visible {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.side-zone-danger:hover,
+.side-zone-danger:focus-visible {
+  background: var(--bad-bg);
+  color: var(--bad);
 }
 
 .badge {
@@ -310,20 +393,6 @@ h2 {
 .count-badge {
   font-size: 13px;
   font-weight: 700;
-  color: var(--text-h);
-}
-
-.remove-btn {
-  border: none;
-  background: none;
-  color: var(--text);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 2px;
-}
-
-.remove-btn:hover {
   color: var(--text-h);
 }
 

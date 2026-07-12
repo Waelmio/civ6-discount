@@ -18,7 +18,8 @@ interface BuildingInstance {
 
 type DragPayload =
   | { source: "available"; districtId: string }
-  | { source: "building"; uid: string; districtId: string };
+  | { source: "building"; uid: string; districtId: string }
+  | { source: "finished"; districtId: string };
 
 const DRAG_MIME = "application/json";
 
@@ -38,7 +39,9 @@ function App() {
     "civ6-discount:finished",
     {},
   );
-  const [dragOverColumn, setDragOverColumn] = useState<"building" | "finished" | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<"available" | "building" | "finished" | null>(
+    null,
+  );
   const [hoveredDistrictId, setHoveredDistrictId] = useState<string | null>(null);
   const [selectedDistrictId, setSelectedDistrictId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; districtId: string } | null>(
@@ -105,7 +108,15 @@ function App() {
     setUnlocked((prev) => ({ ...prev, [id]: false }));
   }
 
+  function canPlaceMore(districtId: string): boolean {
+    const d = DISTRICTS.find((x) => x.id === districtId);
+    if (!d?.singleBuild) return true;
+    const already = (buildingCounts[districtId] ?? 0) + (finishedCounts[districtId] ?? 0);
+    return already < 1;
+  }
+
   function addBuildingInstance(districtId: string) {
+    if (!canPlaceMore(districtId)) return;
     const r = resultById.get(districtId);
     setBuildingList((prev) => [
       ...prev,
@@ -134,18 +145,50 @@ function App() {
     });
   }
 
+  function moveFinishedToBuilding(districtId: string) {
+    const current = finishedCounts[districtId] ?? 0;
+    if (current <= 0) return;
+    unfinishDistrict(districtId);
+    const r = resultById.get(districtId);
+    setBuildingList((prev) => [
+      ...prev,
+      {
+        uid: crypto.randomUUID(),
+        districtId,
+        discounted: r?.discounted ?? false,
+        discountRate: r?.discountRate ?? 0,
+      },
+    ]);
+  }
+
   function resetAll() {
     setUnlocked({});
     setBuildingList([]);
     setFinishedCounts({});
   }
 
+  function handleDropOnAvailable(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOverColumn(null);
+    const payload = readPayload(e);
+    if (!payload) return;
+    if (payload.source === "building") {
+      removeBuildingInstance(payload.uid);
+    } else if (payload.source === "finished") {
+      unfinishDistrict(payload.districtId);
+    }
+  }
+
   function handleDropOnBuilding(e: React.DragEvent) {
     e.preventDefault();
     setDragOverColumn(null);
     const payload = readPayload(e);
-    if (!payload || payload.source !== "available") return;
-    addBuildingInstance(payload.districtId);
+    if (!payload) return;
+    if (payload.source === "available") {
+      addBuildingInstance(payload.districtId);
+    } else if (payload.source === "finished") {
+      moveFinishedToBuilding(payload.districtId);
+    }
   }
 
   function completeBuildingInstance(uid: string, districtId: string) {
@@ -159,8 +202,9 @@ function App() {
     const payload = readPayload(e);
     if (!payload) return;
     if (payload.source === "available") {
+      if (!canPlaceMore(payload.districtId)) return;
       finishDistrict(payload.districtId);
-    } else {
+    } else if (payload.source === "building") {
       completeBuildingInstance(payload.uid, payload.districtId);
     }
   }
@@ -185,9 +229,7 @@ function App() {
       <header>
         <h1>Civ 6 District Discount Tracker</h1>
         <p className="subtitle">
-          Click a locked district to unlock it. Click an unlocked district to select it, or use
-          its arrow (or drag it) to start building it (right-click to re-lock). Click a "Building"
-          card to mark it finished — or drag it, or drag straight from "Available" to "Finished".
+          Clicking a locked district will unlock it, as if you re-searched it in the Civ/Tech tree. You can then set districts as in construction or finished.
         </p>
       </header>
 
@@ -220,7 +262,10 @@ function App() {
           </span>
           <span className="stat-label">B ≥ A?</span>
         </div>
-        <div className="stat gate-stat">
+        <div
+          className="stat gate-stat"
+          title="C(T) is the amount of placed / finished for a district type"
+        >
           <span className="gate-row">
             <span className="gate-icon-slot">
               {hasHoverData && focusedDistrict && (
@@ -246,20 +291,30 @@ function App() {
       </section>
 
       <section className="board">
-        <div className="column">
+        <div
+          className={`column ${dragOverColumn === "available" ? "drag-over" : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverColumn("available");
+          }}
+          onDragLeave={() => setDragOverColumn(null)}
+          onDrop={handleDropOnAvailable}
+        >
           <h2>Available</h2>
-          <div className="column-body">
+          <div className="column-body" onMouseLeave={() => setHoveredDistrictId(null)}>
             {SORTED_DISTRICTS.map((d) => {
               const r = resultById.get(d.id)!;
+              const maxed = !!d.singleBuild && r.placedCount >= 1;
               return (
                 <div
                   key={d.id}
-                  className={`district-tile ${r.unlocked ? "unlocked" : "locked"} ${
+                  className={`district-tile available ${r.unlocked ? "unlocked" : "locked"} ${
                     r.discounted ? "discounted" : ""
-                  } ${focusedDistrictId === d.id ? "selected" : ""}`}
-                  draggable={r.unlocked}
+                  } ${focusedDistrictId === d.id ? "selected" : ""} ${maxed ? "maxed" : ""}`}
+                  draggable={r.unlocked && !maxed}
+                  onMouseEnter={() => setHoveredDistrictId(d.id)}
                   onDragStart={(e) => {
-                    if (!r.unlocked) return;
+                    if (!r.unlocked || maxed) return;
                     e.dataTransfer.setData(
                       DRAG_MIME,
                       JSON.stringify({ source: "available", districtId: d.id } satisfies DragPayload),
@@ -278,43 +333,52 @@ function App() {
                     if (!r.unlocked) return;
                     setContextMenu({ x: e.clientX, y: e.clientY, districtId: d.id });
                   }}
-                  onMouseEnter={() => setHoveredDistrictId(d.id)}
-                  onMouseLeave={() => setHoveredDistrictId(null)}
                   title={
                     !r.unlocked
                       ? "Click to unlock"
-                      : r.discounted
-                        ? "Click to select. Use the arrow to start building — the next one you place is discounted! Right-click to re-lock."
-                        : `Click to select. Use the arrow to start building. Finish ${r.districtsNeededForNextDiscount} ${
-                            r.building > 0 ? "any" : "other"
-                          } districts to discount the next one. Right-click to re-lock.`
+                      : maxed
+                        ? "Already built - can only be constructed once."
+                        : r.discounted
+                          ? "The next one you place is discounted!"
+                          : `Finish ${r.districtsNeededForNextDiscount} ${
+                              r.building > 0 ? "any" : "other"
+                            } district(s) to discount the next one.`
                   }
                 >
                   <img src={d.image} alt={d.name} className="district-img" draggable={false} />
                   <div className="district-info">
                     <span className="district-name">{d.name}</span>
-                    {r.unlocked && !r.discounted && (
-                      <span className="need-hint">
-                        Finish {r.districtsNeededForNextDiscount}{" "}
-                        <span className={r.building > 0 ? "hint-any" : "hint-others"}>
-                          {r.building > 0 ? "any" : "other"}
-                        </span>{" "}
-                        districts
-                      </span>
-                    )}
-                    {r.discounted && (
-                      <span className="need-hint">
-                        {r.discountsLeft} discount{r.discountsLeft === 1 ? "" : "s"} left
-                      </span>
+                    {maxed ? (
+                      <span className="need-hint hint-maxed">Already built</span>
+                    ) : (
+                      <>
+                        {r.unlocked && !r.discounted && (
+                          <span className="need-hint">
+                            Finish {r.districtsNeededForNextDiscount}{" "}
+                            <span className={r.building > 0 ? "hint-any" : "hint-others"}>
+                              {r.building > 0 ? "any" : "other"}
+                            </span>{" "}
+                            district(s)
+                          </span>
+                        )}
+                        {r.discounted && (
+                          <span className="need-hint">
+                            {d.singleBuild
+                              ? "Can be discounted"
+                              : `${r.discountsLeft} discount${r.discountsLeft === 1 ? "" : "s"} left`}
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
-                  {r.discounted && (
+                  {r.discounted && !maxed && (
                     <span className="badge">-{Math.round(r.discountRate * 100)}%</span>
                   )}
-                  {r.unlocked && (
+                  {maxed && <span className="badge badge-maxed">Maxed out</span>}
+                  {r.unlocked && !maxed && (
                     <button
                       type="button"
-                      className="move-to-building-btn"
+                      className="build-zone"
                       onClick={(e) => {
                         e.stopPropagation();
                         addBuildingInstance(d.id);
@@ -357,19 +421,18 @@ function App() {
           onDrop={handleDropOnBuilding}
         >
           <h2>Building</h2>
-          <div className="column-body">
+          <div className="column-body" onMouseLeave={() => setHoveredDistrictId(null)}>
             {buildingList.length === 0 && <p className="empty-hint">Drag districts here</p>}
             {sortedBuildingList.map((b) => {
               const d = DISTRICTS.find((dd) => dd.id === b.districtId)!;
               return (
                 <div
                   key={b.uid}
-                  className={`district-tile building ${b.discounted ? "discounted" : ""}`}
+                  className={`district-tile building ${b.discounted ? "discounted" : ""} ${
+                    focusedDistrictId === b.districtId ? "selected" : ""
+                  }`}
                   draggable
-                  onClick={() => completeBuildingInstance(b.uid, b.districtId)}
                   onMouseEnter={() => setHoveredDistrictId(b.districtId)}
-                  onMouseLeave={() => setHoveredDistrictId(null)}
-                  title="Click to mark finished"
                   onDragStart={(e) => {
                     e.dataTransfer.setData(
                       DRAG_MIME,
@@ -381,7 +444,30 @@ function App() {
                     );
                     e.dataTransfer.effectAllowed = "move";
                   }}
+                  onClick={() => {
+                    setSelectedDistrictId((prev) => (prev === b.districtId ? null : b.districtId));
+                  }}
                 >
+                  <button
+                    type="button"
+                    className="side-zone side-zone-left side-zone-danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeBuildingInstance(b.uid);
+                    }}
+                    title="Cancel — remove from building"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 5l-7 7 7 7"
+                      />
+                    </svg>
+                  </button>
                   <img src={d.image} alt={d.name} className="district-img" draggable={false} />
                   <span className="district-name">{d.name}</span>
                   {b.discounted && (
@@ -389,14 +475,23 @@ function App() {
                   )}
                   <button
                     type="button"
-                    className="remove-btn"
+                    className="side-zone side-zone-right"
                     onClick={(e) => {
                       e.stopPropagation();
-                      removeBuildingInstance(b.uid);
+                      completeBuildingInstance(b.uid, b.districtId);
                     }}
-                    title="Remove"
+                    title="Mark finished"
                   >
-                    ×
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
                   </button>
                 </div>
               );
@@ -414,25 +509,72 @@ function App() {
           onDrop={handleDropOnFinished}
         >
           <h2>Finished</h2>
-          <div className="column-body">
+          <div className="column-body" onMouseLeave={() => setHoveredDistrictId(null)}>
             {finishedGroups.length === 0 && <p className="empty-hint">Drag districts here</p>}
             {finishedGroups.map(({ district, count }) => (
               <div
                 key={district.id}
-                className="district-tile finished"
+                className={`district-tile finished ${
+                  focusedDistrictId === district.id ? "selected" : ""
+                }`}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(
+                    DRAG_MIME,
+                    JSON.stringify({
+                      source: "finished",
+                      districtId: district.id,
+                    } satisfies DragPayload),
+                  );
+                  e.dataTransfer.effectAllowed = "move";
+                }}
                 onMouseEnter={() => setHoveredDistrictId(district.id)}
-                onMouseLeave={() => setHoveredDistrictId(null)}
+                onClick={() => {
+                  setSelectedDistrictId((prev) => (prev === district.id ? null : district.id));
+                }}
               >
+                <button
+                  type="button"
+                  className="side-zone side-zone-left"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    moveFinishedToBuilding(district.id);
+                  }}
+                  title="Move one back to building"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 5l-7 7 7 7"
+                    />
+                  </svg>
+                </button>
                 <img src={district.image} alt={district.name} className="district-img" draggable={false} />
                 <span className="district-name">{district.name}</span>
                 <span className="count-badge">×{count}</span>
                 <button
                   type="button"
-                  className="remove-btn"
-                  onClick={() => unfinishDistrict(district.id)}
+                  className="side-zone side-zone-right side-zone-danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    unfinishDistrict(district.id);
+                  }}
                   title="Remove one"
                 >
-                  −
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6 6l12 12M18 6l-12 12"
+                    />
+                  </svg>
                 </button>
               </div>
             ))}
