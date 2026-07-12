@@ -1,9 +1,8 @@
-name: Publish Docker image
+name: Publish Docker image on release
 
 on:
-  push:
-    branches: [master]
-    tags: ["v*.*.*"]
+  release:
+    types: [published]
 
 env:
   REGISTRY: ghcr.io
@@ -33,9 +32,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
             type=semver,pattern={{version}}
-            type=sha
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
