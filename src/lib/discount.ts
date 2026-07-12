@@ -15,6 +15,9 @@ export interface DistrictResult {
   /** How many more empire-wide district completions are needed
    *  before this type's next placement becomes discounted. 0 if already discounted. */
   districtsNeededForNextDiscount: number;
+  /** How many more consecutive placements of this type (starting now) would still be
+   *  discounted, given the current B. 0 if not currently discounted. */
+  discountsLeft: number;
 }
 
 export interface DiscountSummary {
@@ -24,6 +27,8 @@ export interface DiscountSummary {
   totalCompleted: number;
   /** B / A, formatted for display. */
   averageLabel: string;
+  /** Whether B >= A, the gating condition required before any discount can apply. */
+  gatingMet: boolean;
   results: DistrictResult[];
 }
 
@@ -58,6 +63,7 @@ export function computeDiscounts(
         discounted: false,
         discountRate,
         districtsNeededForNextDiscount: 0,
+        discountsLeft: 0,
       };
     }
 
@@ -67,6 +73,10 @@ export function computeDiscounts(
     // Smallest B' such that placedCount * a < B' and B' >= a.
     const targetB = Math.max(placedCount * a + 1, a);
     const districtsNeededForNextDiscount = discounted ? 0 : Math.max(targetB - b, 0);
+
+    // Largest C(T) (call it maxC) still satisfying maxC * a < b, i.e. maxC <= floor((b - 1) / a).
+    const maxC = discounted ? Math.floor((b - 1) / a) : placedCount;
+    const discountsLeft = discounted ? maxC - placedCount + 1 : 0;
 
     return {
       id: d.id,
@@ -78,8 +88,9 @@ export function computeDiscounts(
       discounted,
       discountRate,
       districtsNeededForNextDiscount,
+      discountsLeft,
     };
   });
 
-  return { districtTypesUnlocked: a, totalCompleted: b, averageLabel, results };
+  return { districtTypesUnlocked: a, totalCompleted: b, averageLabel, gatingMet, results };
 }

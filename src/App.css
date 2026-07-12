@@ -74,6 +74,39 @@ button.reset:hover {
   font-size: 13px;
 }
 
+.gate-value {
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 22px;
+}
+
+.gate-value.gate-met {
+  color: var(--good);
+  background: var(--good-bg);
+}
+
+.gate-value.gate-unmet {
+  color: var(--bad);
+  background: var(--bad-bg);
+}
+
+.gate-value.gate-unknown {
+  color: var(--text);
+  background: var(--border);
+}
+
+.gate-value-slot {
+  display: inline-flex;
+  justify-content: center;
+  width: 140px;
+}
+
+.gate-value-slot .gate-value {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
 h2 {
   font-size: 18px;
   margin: 0 0 12px;
@@ -144,11 +177,34 @@ h2 {
   flex-shrink: 0;
 }
 
+.district-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
 .district-name {
   flex: 1;
   font-size: 14px;
   font-weight: 500;
   color: var(--text-h);
+}
+
+.need-hint {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.hint-any {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.hint-others {
+  color: var(--bad);
+  font-weight: 600;
 }
 
 .district-tile.locked {

@@ -39,6 +39,7 @@ function App() {
     {},
   );
   const [dragOverColumn, setDragOverColumn] = useState<"building" | "finished" | null>(null);
+  const [hoveredDistrictId, setHoveredDistrictId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; districtId: string } | null>(
     null,
   );
@@ -83,6 +84,13 @@ function App() {
     for (const r of summary.results) map.set(r.id, r);
     return map;
   }, [summary]);
+
+  const hoveredResult = hoveredDistrictId ? resultById.get(hoveredDistrictId) : undefined;
+  const hasHoverData = !!hoveredResult && summary.districtTypesUnlocked > 0;
+  // C(T) < B/A, compared via cross-multiplication to avoid float rounding.
+  const hoverBelowAverage =
+    hasHoverData &&
+    hoveredResult!.placedCount * summary.districtTypesUnlocked < summary.totalCompleted;
 
   function unlockDistrict(id: string) {
     setUnlocked((prev) => ({ ...prev, [id]: true }));
@@ -191,15 +199,37 @@ function App() {
       <section className="summary-bar">
         <div className="stat">
           <span className="stat-value">{summary.districtTypesUnlocked}</span>
-          <span className="stat-label">district types unlocked</span>
+          <span className="stat-label">district types unlocked (A)</span>
         </div>
         <div className="stat">
           <span className="stat-value">{summary.totalCompleted}</span>
-          <span className="stat-label">districts finished</span>
+          <span className="stat-label">districts finished (B)</span>
         </div>
         <div className="stat">
           <span className="stat-value">{summary.averageLabel}</span>
           <span className="stat-label">avg finished per type (B/A)</span>
+        </div>
+        <div className="stat">
+          <span className={`stat-value gate-value ${summary.gatingMet ? "gate-met" : "gate-unmet"}`}>
+            {summary.totalCompleted} ≥ {summary.districtTypesUnlocked}
+          </span>
+          <span className="stat-label">B ≥ A?</span>
+        </div>
+        <div className="stat">
+          <span className="gate-value-slot">
+            {hasHoverData ? (
+              <span
+                className={`stat-value gate-value ${
+                  hoverBelowAverage ? "gate-met" : "gate-unmet"
+                }`}
+              >
+                {hoveredResult!.placedCount} &lt; {summary.averageLabel}
+              </span>
+            ) : (
+              <span className="stat-value gate-value gate-unknown">?</span>
+            )}
+          </span>
+          <span className="stat-label">C(T) &lt; B/A?</span>
         </div>
       </section>
 
@@ -236,18 +266,36 @@ function App() {
                     if (!r.unlocked) return;
                     setContextMenu({ x: e.clientX, y: e.clientY, districtId: d.id });
                   }}
+                  onMouseEnter={() => setHoveredDistrictId(d.id)}
+                  onMouseLeave={() => setHoveredDistrictId(null)}
                   title={
                     !r.unlocked
                       ? "Click to unlock"
                       : r.discounted
                         ? "Click to start building. The next one you place is discounted! Right-click to re-lock."
-                        : `Click to start building. Finish ${r.districtsNeededForNextDiscount} more district${
-                            r.districtsNeededForNextDiscount === 1 ? "" : "s"
-                          } (any type) to discount the next one. Right-click to re-lock.`
+                        : `Click to start building. Finish ${r.districtsNeededForNextDiscount} ${
+                            r.building > 0 ? "any" : "other"
+                          } districts to discount the next one. Right-click to re-lock.`
                   }
                 >
                   <img src={d.image} alt={d.name} className="district-img" draggable={false} />
-                  <span className="district-name">{d.name}</span>
+                  <div className="district-info">
+                    <span className="district-name">{d.name}</span>
+                    {r.unlocked && !r.discounted && (
+                      <span className="need-hint">
+                        Finish {r.districtsNeededForNextDiscount}{" "}
+                        <span className={r.building > 0 ? "hint-any" : "hint-others"}>
+                          {r.building > 0 ? "any" : "other"}
+                        </span>{" "}
+                        districts
+                      </span>
+                    )}
+                    {r.discounted && (
+                      <span className="need-hint">
+                        {r.discountsLeft} discount{r.discountsLeft === 1 ? "" : "s"} left
+                      </span>
+                    )}
+                  </div>
                   {r.discounted && (
                     <span className="badge">-{Math.round(r.discountRate * 100)}%</span>
                   )}
@@ -285,6 +333,8 @@ function App() {
                   className={`district-tile building ${b.discounted ? "discounted" : ""}`}
                   draggable
                   onClick={() => completeBuildingInstance(b.uid, b.districtId)}
+                  onMouseEnter={() => setHoveredDistrictId(b.districtId)}
+                  onMouseLeave={() => setHoveredDistrictId(null)}
                   title="Click to mark finished"
                   onDragStart={(e) => {
                     e.dataTransfer.setData(
@@ -333,7 +383,12 @@ function App() {
           <div className="column-body">
             {finishedGroups.length === 0 && <p className="empty-hint">Drag districts here</p>}
             {finishedGroups.map(({ district, count }) => (
-              <div key={district.id} className="district-tile finished">
+              <div
+                key={district.id}
+                className="district-tile finished"
+                onMouseEnter={() => setHoveredDistrictId(district.id)}
+                onMouseLeave={() => setHoveredDistrictId(null)}
+              >
                 <img src={district.image} alt={district.name} className="district-img" draggable={false} />
                 <span className="district-name">{district.name}</span>
                 <span className="count-badge">×{count}</span>
