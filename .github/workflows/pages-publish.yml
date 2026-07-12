@@ -24,10 +24,10 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
@@ -36,7 +36,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm run build -- --base=/civ6-discount/
+        run: pnpm exec tsc -b && pnpm exec vite build --base=/civ6-discount/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
