@@ -40,6 +40,7 @@ function App() {
   );
   const [dragOverColumn, setDragOverColumn] = useState<"building" | "finished" | null>(null);
   const [hoveredDistrictId, setHoveredDistrictId] = useState<string | null>(null);
+  const [selectedDistrictId, setSelectedDistrictId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; districtId: string } | null>(
     null,
   );
@@ -85,7 +86,11 @@ function App() {
     return map;
   }, [summary]);
 
-  const hoveredResult = hoveredDistrictId ? resultById.get(hoveredDistrictId) : undefined;
+  const focusedDistrictId = hoveredDistrictId ?? selectedDistrictId;
+  const hoveredResult = focusedDistrictId ? resultById.get(focusedDistrictId) : undefined;
+  const focusedDistrict = focusedDistrictId
+    ? DISTRICTS.find((d) => d.id === focusedDistrictId)
+    : undefined;
   const hasHoverData = !!hoveredResult && summary.districtTypesUnlocked > 0;
   // C(T) < B/A, compared via cross-multiplication to avoid float rounding.
   const hoverBelowAverage =
@@ -180,9 +185,9 @@ function App() {
       <header>
         <h1>Civ 6 District Discount Tracker</h1>
         <p className="subtitle">
-          Click a locked district to unlock it. Click an unlocked district to start building it
-          (right-click to re-lock). Click a "Building" card to mark it finished — or drag it, or
-          drag straight from "Available" to "Finished".
+          Click a locked district to unlock it. Click an unlocked district to select it, or use
+          its arrow (or drag it) to start building it (right-click to re-lock). Click a "Building"
+          card to mark it finished — or drag it, or drag straight from "Available" to "Finished".
         </p>
       </header>
 
@@ -215,21 +220,28 @@ function App() {
           </span>
           <span className="stat-label">B ≥ A?</span>
         </div>
-        <div className="stat">
-          <span className="gate-value-slot">
-            {hasHoverData ? (
-              <span
-                className={`stat-value gate-value ${
-                  hoverBelowAverage ? "gate-met" : "gate-unmet"
-                }`}
-              >
-                {hoveredResult!.placedCount} &lt; {summary.averageLabel}
-              </span>
-            ) : (
-              <span className="stat-value gate-value gate-unknown">?</span>
-            )}
+        <div className="stat gate-stat">
+          <span className="gate-row">
+            <span className="gate-icon-slot">
+              {hasHoverData && focusedDistrict && (
+                <img src={focusedDistrict.image} alt={focusedDistrict.name} className="gate-icon" />
+              )}
+            </span>
+            <span className="gate-value-slot">
+              {hasHoverData ? (
+                <span
+                  className={`stat-value gate-value ${
+                    hoverBelowAverage ? "gate-met" : "gate-unmet"
+                  }`}
+                >
+                  {hoveredResult!.placedCount} &lt; {summary.averageLabel}
+                </span>
+              ) : (
+                <span className="stat-value gate-value gate-unknown">?</span>
+              )}
+            </span>
           </span>
-          <span className="stat-label">C(T) &lt; B/A?</span>
+          <span className="stat-label gate-label">C(T) &lt; B/A?</span>
         </div>
       </section>
 
@@ -244,7 +256,7 @@ function App() {
                   key={d.id}
                   className={`district-tile ${r.unlocked ? "unlocked" : "locked"} ${
                     r.discounted ? "discounted" : ""
-                  }`}
+                  } ${focusedDistrictId === d.id ? "selected" : ""}`}
                   draggable={r.unlocked}
                   onDragStart={(e) => {
                     if (!r.unlocked) return;
@@ -256,7 +268,7 @@ function App() {
                   }}
                   onClick={() => {
                     if (r.unlocked) {
-                      addBuildingInstance(d.id);
+                      setSelectedDistrictId((prev) => (prev === d.id ? null : d.id));
                     } else {
                       unlockDistrict(d.id);
                     }
@@ -272,8 +284,8 @@ function App() {
                     !r.unlocked
                       ? "Click to unlock"
                       : r.discounted
-                        ? "Click to start building. The next one you place is discounted! Right-click to re-lock."
-                        : `Click to start building. Finish ${r.districtsNeededForNextDiscount} ${
+                        ? "Click to select. Use the arrow to start building — the next one you place is discounted! Right-click to re-lock."
+                        : `Click to select. Use the arrow to start building. Finish ${r.districtsNeededForNextDiscount} ${
                             r.building > 0 ? "any" : "other"
                           } districts to discount the next one. Right-click to re-lock.`
                   }
@@ -298,6 +310,28 @@ function App() {
                   </div>
                   {r.discounted && (
                     <span className="badge">-{Math.round(r.discountRate * 100)}%</span>
+                  )}
+                  {r.unlocked && (
+                    <button
+                      type="button"
+                      className="move-to-building-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addBuildingInstance(d.id);
+                      }}
+                      title="Start building"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
                   )}
                   {!r.unlocked && (
                     <svg className="lock-overlay" viewBox="0 0 24 24" aria-hidden="true">
