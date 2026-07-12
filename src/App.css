@@ -1,0 +1,216 @@
+#app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+h1 {
+  font-size: 32px;
+  margin: 0 0 8px;
+}
+
+.subtitle {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+button.reset {
+  font: inherit;
+  color: var(--text-h);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+button.reset:hover {
+  border-color: var(--accent);
+}
+
+.summary-bar {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  padding: 16px;
+  margin-bottom: 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.stat-label {
+  font-size: 13px;
+}
+
+h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .board {
+    grid-template-columns: 1fr;
+  }
+}
+
+.column {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--bg-card);
+  min-height: 200px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.column.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.column-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty-hint {
+  text-align: center;
+  font-size: 13px;
+  margin: 20px 0;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.district-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--bg);
+}
+
+.district-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.district-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.district-tile.locked {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.district-tile.unlocked {
+  cursor: grab;
+}
+
+.district-tile.unlocked:active {
+  cursor: grabbing;
+}
+
+.district-tile.discounted {
+  border-color: var(--good);
+  background: var(--good-bg);
+}
+
+.district-tile.building {
+  cursor: grab;
+}
+
+.district-tile.finished {
+  cursor: default;
+}
+
+.lock-overlay {
+  width: 16px;
+  height: 16px;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--good);
+  background: var(--good-bg);
+  border: 1px solid var(--good);
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.count-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.remove-btn {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.remove-btn:hover {
+  color: var(--text-h);
+}
