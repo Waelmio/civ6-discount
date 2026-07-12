@@ -433,3 +433,19 @@ h2 {
 .context-menu button:hover {
   background: var(--accent-bg);
 }
+
+.app-footer {
+  margin-top: 40px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.app-footer a {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.app-footer a:hover {
+  color: var(--accent);
+}

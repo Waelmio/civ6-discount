@@ -603,6 +603,13 @@ function App() {
           </button>
         </div>
       )}
+
+      <footer className="app-footer">
+        Brought to you by yours truly,{" "}
+        <a href="https://github.com/Waelmio/civ6-discount" target="_blank" rel="noopener noreferrer">
+          @Waelmio
+        </a>
+      </footer>
     </div>
   );
 }
