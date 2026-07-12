@@ -23,6 +23,7 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 16px;
   margin: 24px 0;
 }
@@ -31,6 +32,14 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.warning-text {
+  margin: 0 0 24px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-align: center;
 }
 
 button.reset {

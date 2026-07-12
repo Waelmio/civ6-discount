@@ -229,7 +229,7 @@ function App() {
       <header>
         <h1>Civ 6 District Discount Tracker</h1>
         <p className="subtitle">
-          Clicking a locked district will unlock it, as if you re-searched it in the Civ/Tech tree. You can then set districts as in construction or finished.
+          Clicking a locked district will unlock it, as if you re-searched it in the Civ/Tech tree.
         </p>
       </header>
 
@@ -242,6 +242,10 @@ function App() {
           Reset all
         </button>
       </section>
+
+      <p className="warning-text">
+        Finished district count (B) is updated only after a district is finished, and then a Tech or Civic is completed!
+      </p>
 
       <section className="summary-bar">
         <div className="stat">
