@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DISTRICTS } from "./data/districts";
 import { RULESETS } from "./data/rulesets";
 import { computeDiscounts } from "./lib/discount";
@@ -11,6 +11,9 @@ const BBG = RULESETS.find((r) => r.id === "bbg")!;
 interface BuildingInstance {
   uid: string;
   districtId: string;
+  /** Discount status locked in at the moment this district was placed. */
+  discounted: boolean;
+  discountRate: number;
 }
 
 type DragPayload =
@@ -18,6 +21,8 @@ type DragPayload =
   | { source: "building"; uid: string; districtId: string };
 
 const DRAG_MIME = "application/json";
+
+const SORTED_DISTRICTS = [...DISTRICTS].sort((a, b) => a.name.localeCompare(b.name));
 
 function App() {
   const [useBbg, setUseBbg] = useLocalStorageState("civ6-discount:use-bbg", false);
@@ -34,12 +39,44 @@ function App() {
     {},
   );
   const [dragOverColumn, setDragOverColumn] = useState<"building" | "finished" | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; districtId: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const closeOnEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    // Defer attaching outside-close listeners to the next tick so the same
+    // right-click gesture that opened the menu doesn't immediately close it.
+    const timer = window.setTimeout(() => {
+      window.addEventListener("click", close);
+      window.addEventListener("contextmenu", close);
+      window.addEventListener("blur", close);
+    }, 0);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("click", close);
+      window.removeEventListener("contextmenu", close);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("blur", close);
+    };
+  }, [contextMenu]);
 
   const ruleset = useBbg ? BBG : VANILLA;
 
+  const buildingCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const b of buildingList) counts[b.districtId] = (counts[b.districtId] ?? 0) + 1;
+    return counts;
+  }, [buildingList]);
+
   const summary = useMemo(
-    () => computeDiscounts(DISTRICTS, unlocked, finishedCounts, ruleset),
-    [unlocked, finishedCounts, ruleset],
+    () => computeDiscounts(DISTRICTS, unlocked, finishedCounts, buildingCounts, ruleset),
+    [unlocked, finishedCounts, buildingCounts, ruleset],
   );
   const resultById = useMemo(() => {
     const map = new Map<string, (typeof summary.results)[number]>();
@@ -47,12 +84,25 @@ function App() {
     return map;
   }, [summary]);
 
-  function toggleUnlocked(id: string) {
-    setUnlocked((prev) => ({ ...prev, [id]: !prev[id] }));
+  function unlockDistrict(id: string) {
+    setUnlocked((prev) => ({ ...prev, [id]: true }));
+  }
+
+  function lockDistrict(id: string) {
+    setUnlocked((prev) => ({ ...prev, [id]: false }));
   }
 
   function addBuildingInstance(districtId: string) {
-    setBuildingList((prev) => [...prev, { uid: crypto.randomUUID(), districtId }]);
+    const r = resultById.get(districtId);
+    setBuildingList((prev) => [
+      ...prev,
+      {
+        uid: crypto.randomUUID(),
+        districtId,
+        discounted: r?.discounted ?? false,
+        discountRate: r?.discountRate ?? 0,
+      },
+    ]);
   }
 
   function removeBuildingInstance(uid: string) {
@@ -85,6 +135,11 @@ function App() {
     addBuildingInstance(payload.districtId);
   }
 
+  function completeBuildingInstance(uid: string, districtId: string) {
+    removeBuildingInstance(uid);
+    finishDistrict(districtId);
+  }
+
   function handleDropOnFinished(e: React.DragEvent) {
     e.preventDefault();
     setDragOverColumn(null);
@@ -93,23 +148,33 @@ function App() {
     if (payload.source === "available") {
       finishDistrict(payload.districtId);
     } else {
-      removeBuildingInstance(payload.uid);
-      finishDistrict(payload.districtId);
+      completeBuildingInstance(payload.uid, payload.districtId);
     }
   }
 
-  const finishedGroups = DISTRICTS.map((d) => ({
+  const finishedGroups = SORTED_DISTRICTS.map((d) => ({
     district: d,
     count: finishedCounts[d.id] ?? 0,
   })).filter((g) => g.count > 0);
+
+  const sortedBuildingList = useMemo(
+    () =>
+      [...buildingList].sort((a, b) => {
+        const nameA = DISTRICTS.find((d) => d.id === a.districtId)?.name ?? "";
+        const nameB = DISTRICTS.find((d) => d.id === b.districtId)?.name ?? "";
+        return nameA.localeCompare(nameB);
+      }),
+    [buildingList],
+  );
 
   return (
     <div id="app">
       <header>
         <h1>Civ 6 District Discount Tracker</h1>
         <p className="subtitle">
-          Click a district to unlock it. Drag it into "Building" to start construction, then drag
-          into "Finished" to complete it — or drag straight from "Available" to "Finished".
+          Click a locked district to unlock it. Click an unlocked district to start building it
+          (right-click to re-lock). Click a "Building" card to mark it finished — or drag it, or
+          drag straight from "Available" to "Finished".
         </p>
       </header>
 
@@ -129,12 +194,12 @@ function App() {
           <span className="stat-label">district types unlocked</span>
         </div>
         <div className="stat">
-          <span className="stat-value">{summary.totalDistrictsBuilt}</span>
+          <span className="stat-value">{summary.totalCompleted}</span>
           <span className="stat-label">districts finished</span>
         </div>
         <div className="stat">
-          <span className="stat-value">{summary.average}</span>
-          <span className="stat-label">discount threshold (avg)</span>
+          <span className="stat-value">{summary.averageLabel}</span>
+          <span className="stat-label">avg finished per type (B/A)</span>
         </div>
       </section>
 
@@ -142,7 +207,7 @@ function App() {
         <div className="column">
           <h2>Available</h2>
           <div className="column-body">
-            {DISTRICTS.map((d) => {
+            {SORTED_DISTRICTS.map((d) => {
               const r = resultById.get(d.id)!;
               return (
                 <div
@@ -159,8 +224,27 @@ function App() {
                     );
                     e.dataTransfer.effectAllowed = "copy";
                   }}
-                  onClick={() => toggleUnlocked(d.id)}
-                  title={r.unlocked ? "Click to lock" : "Click to unlock"}
+                  onClick={() => {
+                    if (r.unlocked) {
+                      addBuildingInstance(d.id);
+                    } else {
+                      unlockDistrict(d.id);
+                    }
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (!r.unlocked) return;
+                    setContextMenu({ x: e.clientX, y: e.clientY, districtId: d.id });
+                  }}
+                  title={
+                    !r.unlocked
+                      ? "Click to unlock"
+                      : r.discounted
+                        ? "Click to start building. The next one you place is discounted! Right-click to re-lock."
+                        : `Click to start building. Finish ${r.districtsNeededForNextDiscount} more district${
+                            r.districtsNeededForNextDiscount === 1 ? "" : "s"
+                          } (any type) to discount the next one. Right-click to re-lock.`
+                  }
                 >
                   <img src={d.image} alt={d.name} className="district-img" draggable={false} />
                   <span className="district-name">{d.name}</span>
@@ -193,13 +277,15 @@ function App() {
           <h2>Building</h2>
           <div className="column-body">
             {buildingList.length === 0 && <p className="empty-hint">Drag districts here</p>}
-            {buildingList.map((b) => {
+            {sortedBuildingList.map((b) => {
               const d = DISTRICTS.find((dd) => dd.id === b.districtId)!;
               return (
                 <div
                   key={b.uid}
-                  className="district-tile building"
+                  className={`district-tile building ${b.discounted ? "discounted" : ""}`}
                   draggable
+                  onClick={() => completeBuildingInstance(b.uid, b.districtId)}
+                  title="Click to mark finished"
                   onDragStart={(e) => {
                     e.dataTransfer.setData(
                       DRAG_MIME,
@@ -214,10 +300,16 @@ function App() {
                 >
                   <img src={d.image} alt={d.name} className="district-img" draggable={false} />
                   <span className="district-name">{d.name}</span>
+                  {b.discounted && (
+                    <span className="badge">-{Math.round(b.discountRate * 100)}%</span>
+                  )}
                   <button
                     type="button"
                     className="remove-btn"
-                    onClick={() => removeBuildingInstance(b.uid)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeBuildingInstance(b.uid);
+                    }}
                     title="Remove"
                   >
                     ×
@@ -258,6 +350,24 @@ function App() {
           </div>
         </div>
       </section>
+
+      {contextMenu && (
+        <div
+          className="context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              lockDistrict(contextMenu.districtId);
+              setContextMenu(null);
+            }}
+          >
+            Re-lock
+          </button>
+        </div>
+      )}
     </div>
   );
 }

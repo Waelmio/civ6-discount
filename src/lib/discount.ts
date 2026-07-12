@@ -6,18 +6,24 @@ export interface DistrictResult {
   name: string;
   unlocked: boolean;
   finished: number;
-  /** Whether the next district of this type is currently discounted. */
+  building: number;
+  /** C(T): districts of this type completed or placed (building). */
+  placedCount: number;
+  /** Whether the next placement of this type is currently discounted. */
   discounted: boolean;
   discountRate: number;
-  /** How many more empire-wide district completions (of any type) are needed
-   *  before this type's next copy becomes discounted. 0 if already discounted. */
+  /** How many more empire-wide district completions are needed
+   *  before this type's next placement becomes discounted. 0 if already discounted. */
   districtsNeededForNextDiscount: number;
 }
 
 export interface DiscountSummary {
+  /** A: number of specialty district types unlocked. */
   districtTypesUnlocked: number;
-  totalDistrictsBuilt: number;
-  average: number;
+  /** B: number of specialty districts completed. */
+  totalCompleted: number;
+  /** B / A, formatted for display. */
+  averageLabel: string;
   results: DistrictResult[];
 }
 
@@ -25,53 +31,55 @@ export function computeDiscounts(
   districts: DistrictDef[],
   unlocked: Record<string, boolean>,
   finishedCounts: Record<string, number>,
+  buildingCounts: Record<string, number>,
   ruleset: Ruleset,
 ): DiscountSummary {
-  const districtTypesUnlocked = districts.filter((d) => unlocked[d.id]).length;
-  const totalDistrictsBuilt = districts.reduce((sum, d) => sum + (finishedCounts[d.id] ?? 0), 0);
+  const a = districts.filter((d) => unlocked[d.id]).length;
+  const b = districts.reduce((sum, d) => sum + (finishedCounts[d.id] ?? 0), 0);
 
-  const average =
-    districtTypesUnlocked > 0 ? Math.ceil(totalDistrictsBuilt / districtTypesUnlocked) : 0;
-
-  const gatingMet = districtTypesUnlocked > 0 && totalDistrictsBuilt >= districtTypesUnlocked;
+  const gatingMet = a > 0 && b >= a;
+  const averageLabel = a > 0 ? (b / a).toFixed(2) : "-";
 
   const results: DistrictResult[] = districts.map((d) => {
     const isUnlocked = unlocked[d.id] ?? false;
     const finished = finishedCounts[d.id] ?? 0;
+    const building = buildingCounts[d.id] ?? 0;
+    const placedCount = finished + building;
     const discountRate = d.reducedDiscountRate ? ruleset.reducedDiscount : ruleset.standardDiscount;
 
-    if (!isUnlocked || districtTypesUnlocked === 0) {
+    if (!isUnlocked || a === 0) {
       return {
         id: d.id,
         name: d.name,
         unlocked: isUnlocked,
         finished,
+        building,
+        placedCount,
         discounted: false,
         discountRate,
         districtsNeededForNextDiscount: 0,
       };
     }
 
-    const discounted = gatingMet && finished < average;
+    // C(T) < B/A, compared via cross-multiplication to avoid float rounding.
+    const discounted = gatingMet && placedCount * a < b;
 
-    // Smallest totalDistrictsBuilt (call it T) such that ceil(T / types) > finished,
-    // i.e. T > finished * types. Smallest integer T is finished*types + 1.
-    // Also need T >= types for the gate. Needed additional built = T - totalDistrictsBuilt.
-    const targetTotal = Math.max(finished * districtTypesUnlocked + 1, districtTypesUnlocked);
-    const districtsNeededForNextDiscount = discounted
-      ? 0
-      : Math.max(targetTotal - totalDistrictsBuilt, 0);
+    // Smallest B' such that placedCount * a < B' and B' >= a.
+    const targetB = Math.max(placedCount * a + 1, a);
+    const districtsNeededForNextDiscount = discounted ? 0 : Math.max(targetB - b, 0);
 
     return {
       id: d.id,
       name: d.name,
       unlocked: isUnlocked,
       finished,
+      building,
+      placedCount,
       discounted,
       discountRate,
       districtsNeededForNextDiscount,
     };
   });
 
-  return { districtTypesUnlocked, totalDistrictsBuilt, average, results };
+  return { districtTypesUnlocked: a, totalCompleted: b, averageLabel, results };
 }
