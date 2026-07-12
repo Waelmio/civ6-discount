@@ -8,32 +8,34 @@ export interface DistrictDef {
   reducedDiscountRate?: boolean;
 }
 
+const districtImage = (file: string) => `${import.meta.env.BASE_URL}districts/${file}`;
+
 export const DISTRICTS: DistrictDef[] = [
-  { id: "campus", name: "Campus", image: "/districts/campus.png" },
-  { id: "holy-site", name: "Holy Site", image: "/districts/holy-site.png" },
-  { id: "commercial-hub", name: "Commercial Hub", image: "/districts/commercial-hub.png" },
-  { id: "harbor", name: "Harbor", image: "/districts/harbor.png" },
-  { id: "theater-square", name: "Theater Square", image: "/districts/theater-square.png" },
-  { id: "industrial-zone", name: "Industrial Zone", image: "/districts/industrial-zone.png" },
-  { id: "encampment", name: "Encampment", image: "/districts/encampment.png" },
-  { id: "aerodrome", name: "Aerodrome", image: "/districts/aerodrome.png" },
+  { id: "campus", name: "Campus", image: districtImage("campus.png") },
+  { id: "holy-site", name: "Holy Site", image: districtImage("holy-site.png") },
+  { id: "commercial-hub", name: "Commercial Hub", image: districtImage("commercial-hub.png") },
+  { id: "harbor", name: "Harbor", image: districtImage("harbor.png") },
+  { id: "theater-square", name: "Theater Square", image: districtImage("theater-square.png") },
+  { id: "industrial-zone", name: "Industrial Zone", image: districtImage("industrial-zone.png") },
+  { id: "encampment", name: "Encampment", image: districtImage("encampment.png") },
+  { id: "aerodrome", name: "Aerodrome", image: districtImage("aerodrome.png") },
   {
     id: "entertainment-complex",
     name: "Entertainment Complex",
-    image: "/districts/entertainment-complex.png",
+    image: districtImage("entertainment-complex.png"),
   },
-  { id: "water-park", name: "Water Park", image: "/districts/water-park.png" },
+  { id: "water-park", name: "Water Park", image: districtImage("water-park.png") },
   {
     id: "diplomatic-quarter",
     name: "Diplomatic Quarter",
-    image: "/districts/diplomatic-quarter.png",
+    image: districtImage("diplomatic-quarter.png"),
     singleBuild: true,
     reducedDiscountRate: true,
   },
   {
     id: "government-plaza",
     name: "Government Plaza",
-    image: "/districts/government-plaza.png",
+    image: districtImage("government-plaza.png"),
     singleBuild: true,
     reducedDiscountRate: true,
   },
